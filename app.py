@@ -3,14 +3,19 @@ import pickle
 import numpy as np
 from flask import Flask, request, render_template_string
 
+# Initialize Flask app
 app = Flask(__name__)
 
-# Load model relative to current file path
-MODEL_PATH = os.path.join(os.path.dirname(__file__), "..", "logistic.pkl")
-with open(MODEL_PATH, "rb") as f:
-    model = pickle.load(f)
+# Load model relative to current directory execution
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+MODEL_PATH = os.path.join(BASE_DIR, "..", "logistic.pkl")
 
-# Categorical mappings for encoding inputs into numbers expected by the model
+model = None
+if os.path.exists(MODEL_PATH):
+    with open(MODEL_PATH, "rb") as f:
+        model = pickle.load(f)
+
+# Categorical mappings matching the model's expected inputs
 CATEGORICAL_MAPPINGS = {
     "parental_education": {"High School": 0, "Bachelor": 1, "Master": 2, "PhD": 3},
     "family_income": {"Low": 0, "Medium": 1, "High": 2},
@@ -177,8 +182,11 @@ HTML_TEMPLATE = """
 def home():
     prediction = None
     if request.method == "POST":
+        if model is None:
+            return render_template_string(HTML_TEMPLATE, mappings=CATEGORICAL_MAPPINGS, prediction="Error: Model file not found.")
+
         try:
-            # Extract inputs matching the model feature sequence
+            # Extract inputs in precise sequence expected by model
             raw_features = [
                 float(request.form["attendance"]),
                 float(request.form["study_hours"]),
@@ -200,5 +208,6 @@ def home():
 
     return render_template_string(HTML_TEMPLATE, mappings=CATEGORICAL_MAPPINGS, prediction=prediction)
 
-# Vercel Serverless Function entrypoint
-app_wsgi = app
+# Required entry point for Vercel
+if __name__ == "__main__":
+    app.run(debug=True)
